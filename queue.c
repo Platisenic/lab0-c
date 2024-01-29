@@ -119,9 +119,25 @@ int q_size(struct list_head *head)
 }
 
 /* Delete the middle node in queue */
+// https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/
 bool q_delete_mid(struct list_head *head)
 {
-    // https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/
+    if (!head || list_empty(head))
+        return false;
+
+    struct list_head *slow = head;
+    struct list_head *fast = head;
+    element_t *ele;
+    bool first = true;
+
+    while (first || (fast != head && fast->next != head)) {
+        first = false;
+        slow = slow->next;
+        fast = fast->next->next;
+    }
+    ele = list_entry(slow, element_t, list);
+    list_del(slow);
+    q_release_element(ele);
     return true;
 }
 
@@ -133,13 +149,52 @@ bool q_delete_dup(struct list_head *head)
 }
 
 /* Swap every two adjacent nodes */
+// https://leetcode.com/problems/swap-nodes-in-pairs/
 void q_swap(struct list_head *head)
 {
-    // https://leetcode.com/problems/swap-nodes-in-pairs/
+    if (!head || list_empty(head))
+        return;
+
+    struct list_head *n1 = head->next;
+    struct list_head *n0, *n2, *n3;
+    // n0 n1 n2 n3
+    //     ^
+    // n0 n2 n1 n3
+    while (n1 != head && n1->next != head) {
+        n0 = n1->prev;
+        n2 = n1->next;
+        n3 = n2->next;
+
+        n0->next = n2;
+        n2->next = n1;
+        n2->prev = n0;
+        n1->next = n3;
+        n1->prev = n2;
+        n3->prev = n1;
+
+        n1 = n3;
+    }
 }
 
 /* Reverse elements in queue */
-void q_reverse(struct list_head *head) {}
+void q_reverse(struct list_head *head)
+{
+    if (!head || list_empty(head))
+        return;
+
+    struct list_head *prev, *node = head, *next;
+    bool first = true;
+    while (first || node != head) {
+        first = false;
+        prev = node->prev;
+        next = node->next;
+
+        node->next = prev;
+        node->prev = next;
+
+        node = next;
+    }
+}
 
 /* Reverse the nodes of the list k at a time */
 void q_reverseK(struct list_head *head, int k)
