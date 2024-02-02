@@ -10,6 +10,18 @@
  *   cppcheck-suppress nullPointer
  */
 
+#define list_for_each_entry_safe_reverse(entry, safe, head, member)        \
+    for (entry = list_entry((head)->prev, __typeof__(*entry), member),     \
+        safe = list_entry(entry->member.prev, __typeof__(*entry), member); \
+         &entry->member != (head); entry = safe,                           \
+        safe = list_entry(safe->member.prev, __typeof__(*entry), member))
+
+
+#define list_for_range_entry_safe(entry, safe, start, end, member)         \
+    for (entry = list_entry(start, __typeof__(*entry), member),            \
+        safe = list_entry(entry->member.next, __typeof__(*entry), member); \
+         &entry->member != (end); entry = safe,                            \
+        safe = list_entry(safe->member.next, __typeof__(*entry), member))
 
 /* Create an empty queue */
 struct list_head *q_new()
@@ -142,9 +154,33 @@ bool q_delete_mid(struct list_head *head)
 }
 
 /* Delete all nodes that have duplicate string */
+// https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
 bool q_delete_dup(struct list_head *head)
 {
-    // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
+    if (!head || list_empty(head))
+        return false;
+
+    element_t *entry, *safe;
+    struct list_head *node1, *node2;
+
+    q_sort(head, false);
+
+    for (node1 = head->next; node1 != head; node1 = node2) {
+        node2 = node1->next;
+        while (node2 != head &&
+               !strcmp(list_entry(node1, element_t, list)->value,
+                       list_entry(node2, element_t, list)->value)) {
+            node2 = node2->next;
+        }
+        if (node2 != node1->next) {
+            list_for_range_entry_safe(entry, safe, node1, node2, list)
+            {
+                list_del(&entry->list);
+                q_release_element(entry);
+            }
+        }
+    }
+
     return true;
 }
 
@@ -207,24 +243,52 @@ void q_sort(struct list_head *head, bool descend) {}
 
 /* Remove every node which has a node with a strictly less value anywhere to
  * the right side of it */
+// https://leetcode.com/problems/remove-nodes-from-linked-list/
 int q_ascend(struct list_head *head)
 {
-    // https://leetcode.com/problems/remove-nodes-from-linked-list/
-    return 0;
+    if (!head || list_empty(head))
+        return 0;
+
+    element_t *entry, *safe;
+    element_t *min_ele = list_last_entry(head, element_t, list);
+
+    list_for_each_entry_safe_reverse(entry, safe, head, list)
+    {
+        if (strcmp(entry->value, min_ele->value) <= 0) {
+            min_ele = entry;
+        } else {
+            list_del_init(&entry->list);
+        }
+    }
+    return q_size(head);
 }
 
 /* Remove every node which has a node with a strictly greater value anywhere to
  * the right side of it */
+// https://leetcode.com/problems/remove-nodes-from-linked-list/
 int q_descend(struct list_head *head)
 {
-    // https://leetcode.com/problems/remove-nodes-from-linked-list/
-    return 0;
+    if (!head || list_empty(head))
+        return 0;
+
+    element_t *entry, *safe;
+    element_t *max_ele = list_last_entry(head, element_t, list);
+
+    list_for_each_entry_safe_reverse(entry, safe, head, list)
+    {
+        if (strcmp(entry->value, max_ele->value) >= 0) {
+            max_ele = entry;
+        } else {
+            list_del_init(&entry->list);
+        }
+    }
+    return q_size(head);
 }
 
 /* Merge all the queues into one sorted queue, which is in ascending/descending
  * order */
+// https://leetcode.com/problems/merge-k-sorted-lists/
 int q_merge(struct list_head *head, bool descend)
 {
-    // https://leetcode.com/problems/merge-k-sorted-lists/
     return 0;
 }
