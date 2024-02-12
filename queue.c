@@ -218,28 +218,168 @@ void q_reverse(struct list_head *head)
     if (!head || list_empty(head))
         return;
 
-    struct list_head *prev, *node = head, *next;
-    bool first = true;
-    while (first || node != head) {
-        first = false;
-        prev = node->prev;
-        next = node->next;
+    struct list_head *node, *safe;
 
-        node->next = prev;
-        node->prev = next;
-
-        node = next;
+    list_for_each_safe (node, safe, head) {
+        list_move(node, head);
     }
 }
 
+static struct list_head *reverse(struct list_head *head)
+{
+    struct list_head *cur = head;
+    struct list_head *prev = NULL, *next;
+    while (cur) {
+        next = cur->next;
+        cur->next = prev;
+        cur->prev = next;
+        prev = cur;
+        cur = next;
+    }
+    return prev;
+}
+
+static struct list_head *reverseK(struct list_head *head, int k)
+{
+    struct list_head *cur = head;
+    struct list_head *prev = head, *rev_head, *node;
+    int t = 0;
+
+    while (cur && t < k) {
+        prev = cur;
+        cur = cur->next;
+        t++;
+    }
+    if (t == k) {
+        prev->next = NULL;
+        rev_head = reverse(head);
+        node = reverseK(cur, k);
+        head->next = node;
+        node->prev = head;
+    } else {
+        rev_head = head;
+    }
+    return rev_head;
+}
+
 /* Reverse the nodes of the list k at a time */
+// https://leetcode.com/problems/reverse-nodes-in-k-group/
 void q_reverseK(struct list_head *head, int k)
 {
-    // https://leetcode.com/problems/reverse-nodes-in-k-group/
+    if (!head || list_empty(head))
+        return;
+
+    struct list_head *first = head->next;
+    struct list_head *last = head->prev;
+    struct list_head *resFirst, *resLast, *tmp;
+
+    first->prev = NULL;
+    last->next = NULL;
+
+    tmp = resLast = resFirst = reverseK(first, k);
+    while (tmp) {
+        resLast = tmp;
+        tmp = tmp->next;
+    }
+
+    head->next = resFirst;
+    head->prev = resLast;
+    resFirst->prev = head;
+    resLast->next = head;
+}
+
+static struct list_head *merge(struct list_head *h1,
+                               struct list_head *h2,
+                               bool descend)
+{
+    struct list_head *first;
+    struct list_head dummy;
+    struct list_head *cur = &dummy;
+    while (h1 && h2) {
+        if (!descend) {
+            if (strcmp(list_entry(h1, element_t, list)->value,
+                       list_entry(h2, element_t, list)->value) < 0) {
+                cur->next = h1;
+                h1->prev = cur;
+                h1 = h1->next;
+            } else {
+                cur->next = h2;
+                h2->prev = cur;
+                h2 = h2->next;
+            }
+        } else {
+            if (strcmp(list_entry(h1, element_t, list)->value,
+                       list_entry(h2, element_t, list)->value) > 0) {
+                cur->next = h1;
+                h1->prev = cur;
+                h1 = h1->next;
+            } else {
+                cur->next = h2;
+                h2->prev = cur;
+                h2 = h2->next;
+            }
+        }
+        cur = cur->next;
+    }
+    if (h1) {
+        cur->next = h1;
+        h1->prev = cur;
+    }
+    if (h2) {
+        cur->next = h2;
+        h2->prev = cur;
+    }
+    first = dummy.next;
+    first->prev = NULL;
+    return first;
+}
+
+static struct list_head *mergeSort(struct list_head *head, bool descend)
+{
+    if (!head->next)
+        return head;
+
+    struct list_head *midprev = head, *mid = head, *fast = head;
+    struct list_head *left, *right, *resHead;
+
+    while (fast && fast->next) {
+        midprev = mid;
+        mid = mid->next;
+        fast = fast->next->next;
+    }
+    midprev->next = NULL;
+    mid->prev = NULL;
+
+    left = mergeSort(head, descend);
+    right = mergeSort(mid, descend);
+    resHead = merge(left, right, descend);
+    return resHead;
 }
 
 /* Sort elements of queue in ascending/descending order */
-void q_sort(struct list_head *head, bool descend) {}
+void q_sort(struct list_head *head, bool descend)
+{
+    if (!head || list_empty(head))
+        return;
+
+    struct list_head *first = head->next;
+    struct list_head *last = head->prev;
+    struct list_head *resFirst, *resLast, *tmp;
+
+    first->prev = NULL;
+    last->next = NULL;
+
+    tmp = resLast = resFirst = mergeSort(first, descend);
+    while (tmp) {
+        resLast = tmp;
+        tmp = tmp->next;
+    }
+
+    head->next = resFirst;
+    head->prev = resLast;
+    resFirst->prev = head;
+    resLast->next = head;
+}
 
 /* Remove every node which has a node with a strictly less value anywhere to
  * the right side of it */
@@ -257,7 +397,8 @@ int q_ascend(struct list_head *head)
         if (strcmp(entry->value, min_ele->value) <= 0) {
             min_ele = entry;
         } else {
-            list_del_init(&entry->list);
+            list_del(&entry->list);
+            q_release_element(entry);
         }
     }
     return q_size(head);
@@ -279,7 +420,8 @@ int q_descend(struct list_head *head)
         if (strcmp(entry->value, max_ele->value) >= 0) {
             max_ele = entry;
         } else {
-            list_del_init(&entry->list);
+            list_del(&entry->list);
+            q_release_element(entry);
         }
     }
     return q_size(head);
@@ -290,5 +432,23 @@ int q_descend(struct list_head *head)
 // https://leetcode.com/problems/merge-k-sorted-lists/
 int q_merge(struct list_head *head, bool descend)
 {
-    return 0;
+    if (!head || list_empty(head))
+        return 0;
+
+    struct list_head *q1 = list_entry(head->next, queue_contex_t, chain)->q;
+    int len = q_size(q1);
+
+    if (list_is_singular(head))
+        return q_size(q1);
+
+    for (struct list_head *qchain = head->next->next; qchain != head;
+         qchain = qchain->next) {
+        struct list_head *q2 = list_entry(qchain, queue_contex_t, chain)->q;
+        len += q_size(q2);
+        list_splice_tail_init(q2, q1);
+    }
+
+    q_sort(q1, descend);
+
+    return len;
 }
